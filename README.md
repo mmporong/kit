@@ -87,6 +87,25 @@ KIT.md와 .agents/skills/kit-data/SKILL.md를 읽고,
 이 방법은 문서를 명시적으로 읽는 것이며, 자동 Skill 등록 성공과는 다릅니다.
 자동 인식 여부를 확인하려고 Codex를 업데이트하거나 관리 설정을 바꾸지 마세요.
 
+### 1-4. 테스트 판정과 예측 모델 평가
+
+`kit-verify`는 테스트 0개·전부 skip을 미확인으로 남기며, 종료코드와 로그가 충돌하면 성공으로 판정하지 않습니다. 일부 skip은 실행한 범위와 분리하고 실패·오류를 숨기지 않습니다. 이전 증거는 검사 시점의 파일·설정·입력·의존성이 현재도 유효한 범위에서만 재사용합니다.
+
+```text
+$kit-verify 현재 요구를 검사하고, 실행 시점·파일 버전·명령·종료코드와 테스트 수를 기록하세요.
+수집·실행·통과·실패·오류·skip 수, 실패와 미확인을 구분하세요.
+기존 증거는 관련 변경 여부를 확인하고 필요한 검사만 다시 실행하세요.
+```
+
+예측 모델을 학습·평가할 때만 `kit-data`의 [모델 평가 점검](skills/kit-data/references/model-evaluation.md)을 읽습니다. 기준선과 같은 평가셋에서 비교하고, 그룹·시간 누수, 학습·검증·최종 평가셋 분리, 혼동행렬과 오탐·미탐을 확인합니다. 단순 집계나 화면 수정에는 적용하지 않습니다.
+
+```text
+$kit-data 예측 시점과 그룹·시간 분할을 확인한 뒤 model-evaluation 참고문서를 적용하세요.
+기준선과 후보를 같은 평가셋으로 비교하고, 혼동행렬·오탐·미탐·평가 표본 수를 보고하세요.
+```
+
+자동 인식이 안 되면 `.agents/skills/kit-data/references/model-evaluation.md`를 명시해 읽힙니다. 검증 기록은 [선택형 양식](skills/kit-verify/references/evidence-log.md)을 참고합니다. 이 문서들은 자동 판정기나 성능 향상 보장이 아닙니다.
+
 <a id="structure"></a>
 ## 2. 무엇이 설치되고 어떻게 작동하나요?
 
@@ -101,7 +120,9 @@ KIT.md와 .agents/skills/kit-data/SKILL.md를 읽고,
     ├── kit-brief/SKILL.md
     ├── kit-data/
     │   ├── SKILL.md
-    │   └── references/semiconductor.md
+    │   └── references/
+    │       ├── semiconductor.md
+    │       └── model-evaluation.md
     ├── kit-verify/
     │   ├── SKILL.md
     │   └── references/evidence-log.md
@@ -614,6 +635,7 @@ python3 -m unittest discover -s tests -v
 | [install.sh](install.sh) | 기존 파일을 덮어쓰지 않는 프로젝트 내부 파일 배치 |
 | [skills/](skills/) | 선택형 스킬 5개와 필요한 참고자료 |
 | [tests/test_install.py](tests/test_install.py) | 설치기와 파일 구조 검사 |
+| [tests/test_guidance.py](tests/test_guidance.py) | 참고문서 배치·충돌 보존·오해하기 쉬운 테스트 종료 사례 검사 |
 | [CHECKS.md](CHECKS.md) | 실제 실행한 검사와 미확인 범위 |
 | [SOURCES.md](SOURCES.md) | 공개 참고 출처와 작성 범위 |
 | [LICENSE](LICENSE) | 이 묶음의 MIT 라이선스 |
