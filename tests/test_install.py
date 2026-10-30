@@ -2,10 +2,10 @@
 import hashlib
 import re
 import shutil
-import subprocess
 import tempfile
 import unittest
 from pathlib import Path
+from install_support import make_symlink_or_skip, run_install
 
 ROOT = Path(__file__).resolve().parents[1]
 NAMES = ['kit-brief', 'kit-data', 'kit-verify', 'kit-debug', 'kit-explain']
@@ -31,8 +31,7 @@ class InstallTests(unittest.TestCase):
         (self.project / 'app.txt').write_text('existing application\n')
 
     def run_install(self, target=None):
-        return subprocess.run(['bash', str(self.kit / 'install.sh'), str(target or self.project)],
-                              text=True, capture_output=True, timeout=10)
+        return run_install(self.kit / 'install.sh', target or self.project)
 
     def test_fresh_install_preserves_existing_files(self):
         before = snapshot(self.project)
@@ -50,6 +49,28 @@ class InstallTests(unittest.TestCase):
         before = snapshot(self.project)
         self.assertEqual(self.run_install().returncode, 0)
         self.assertEqual(snapshot(self.project), before)
+
+    def test_complete_payload_and_unrelated_configuration_preserved(self):
+        for relative in ('.codex/config.toml', 'AGENTS.override.md',
+                         '.agents/skills/local-skill/SKILL.md'):
+            path = self.project / relative
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text('existing project configuration\n', encoding='utf-8')
+        before = snapshot(self.project)
+        expected = {'KIT.md': snapshot(self.kit)['KIT.md']}
+        for relative, digest in snapshot(self.kit / 'skills').items():
+            expected[str(Path('.agents/skills') / relative)] = digest
+        result = self.run_install()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(snapshot(self.project), before | expected)
+
+    def test_unicode_project_path(self):
+        project = self.base / '과제 폴더'
+        project.mkdir()
+        result = self.run_install(project)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual((project / 'KIT.md').read_bytes(), (self.kit / 'KIT.md').read_bytes())
+        self.assertEqual(snapshot(project / '.agents/skills'), snapshot(self.kit / 'skills'))
 
     def test_conflict_is_detected_before_writing(self):
         conflict = self.project / '.agents/skills/kit-explain'
@@ -71,7 +92,7 @@ class InstallTests(unittest.TestCase):
     def test_agents_symlink_rejected(self):
         outside = self.base / 'outside'
         outside.mkdir()
-        (self.project / '.agents').symlink_to(outside, target_is_directory=True)
+        make_symlink_or_skip(self, self.project / '.agents', outside, directory=True)
         self.assertNotEqual(self.run_install().returncode, 0)
         self.assertEqual(list(outside.iterdir()), [])
 
@@ -83,7 +104,7 @@ class InstallTests(unittest.TestCase):
         self.assertFalse((self.project / '.agents').exists())
 
     def test_source_link_rejected(self):
-        (self.kit / 'skills/kit-data/ref-link').symlink_to(self.kit / 'README.md')
+        make_symlink_or_skip(self, self.kit / 'skills/kit-data/ref-link', self.kit / 'README.md')
         self.assertNotEqual(self.run_install().returncode, 0)
         self.assertFalse((self.project / '.agents').exists())
 
@@ -104,7 +125,7 @@ class InstallTests(unittest.TestCase):
     def test_skill_metadata_and_names(self):
         self.assertEqual(sorted(p.name for p in (self.kit / 'skills').iterdir()), sorted(NAMES))
         for name in NAMES:
-            text = (self.kit / 'skills' / name / 'SKILL.md').read_text()
+            text = (self.kit / 'skills' / name / 'SKILL.md').read_text(encoding='utf-8')
             self.assertTrue(text.startswith('---\n'))
             meta = text.split('---', 2)[1]
             self.assertIn('name: ' + name, meta)
@@ -112,7 +133,7 @@ class InstallTests(unittest.TestCase):
             self.assertLess(len(meta), 1024)
 
     def test_forbidden_side_effects_absent_from_installer(self):
-        script = (self.kit / 'install.sh').read_text()
+        script = (self.kit / 'install.sh').read_text(encoding='utf-8')
         for pattern in (r'\bcurl\b', r'\bwget\b', r'\bgit\b', r'\bpip\b', r'\bnpm\b',
                         r'\bsudo\b', r'\bchmod\b', r'\beval\b', r'\bexec codex\b'):
             self.assertNotRegex(script, pattern)

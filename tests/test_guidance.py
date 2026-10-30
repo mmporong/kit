@@ -7,6 +7,7 @@ import tempfile
 import textwrap
 import unittest
 from pathlib import Path
+from install_support import run_install
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -23,9 +24,7 @@ class GuidanceTests(unittest.TestCase):
     def test_new_references_are_installed_byte_for_byte(self):
         with tempfile.TemporaryDirectory() as tmp:
             project = Path(tmp)
-            result = subprocess.run(
-                ['bash', str(ROOT / 'install.sh'), str(project)],
-                capture_output=True, text=True, timeout=10)
+            result = run_install(ROOT / 'install.sh', project)
             self.assertEqual(result.returncode, 0, result.stderr)
             for relative in (
                 'kit-data/references/model-evaluation.md',
@@ -38,13 +37,12 @@ class GuidanceTests(unittest.TestCase):
     def test_changed_reference_conflict_preserves_existing_files(self):
         with tempfile.TemporaryDirectory() as tmp:
             project = Path(tmp)
-            command = ['bash', str(ROOT / 'install.sh'), str(project)]
-            first = subprocess.run(command, capture_output=True, text=True, timeout=10)
+            first = run_install(ROOT / 'install.sh', project)
             self.assertEqual(first.returncode, 0, first.stderr)
             reference = project / '.agents/skills/kit-data/references/model-evaluation.md'
             reference.write_text('existing project-specific guidance\n', encoding='utf-8')
             before = snapshot(project)
-            second = subprocess.run(command, capture_output=True, text=True, timeout=10)
+            second = run_install(ROOT / 'install.sh', project)
             self.assertNotEqual(second.returncode, 0)
             self.assertEqual(snapshot(project), before)
 
