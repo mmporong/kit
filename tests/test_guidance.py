@@ -29,6 +29,7 @@ class GuidanceTests(unittest.TestCase):
             for relative in (
                 'kit-data/references/model-evaluation.md',
                 'kit-verify/references/evidence-log.md',
+                'kit-verify/references/runtime-behavior.md',
             ):
                 self.assertEqual(
                     (ROOT / 'skills' / relative).read_bytes(),
